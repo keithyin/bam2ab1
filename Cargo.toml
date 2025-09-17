@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bincode = { version = "2.0.1", optional = true }
+na_seq = "0.3.6"  # Element, atom etc primitives
+bio = "2.3.0"  # For FASTA parsing.
