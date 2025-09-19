@@ -9,7 +9,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{self, ErrorKind, Read, Seek, SeekFrom},
-    path::Path,
+    path::{self, Path},
 };
 
 #[cfg(feature = "encode")]
@@ -74,6 +74,7 @@ impl Header {
             data_offset: u32::from_be_bytes(bytes[22..26].try_into().unwrap()),
         })
     }
+
 }
 
 #[derive(Debug)]
@@ -460,3 +461,17 @@ pub fn import_ab1(path: &Path) -> io::Result<Vec<SeqRecordAb1>> {
     }
     Ok(results)
 }
+
+
+
+    #[test]
+    fn test_read_ab1() {
+        let fpath = "/data-slow/kangwei-deliver/kangwei-deliver/S22509070002-Epi5A-1.ab1";
+        let p = path::Path::new(fpath);
+        let records = import_ab1(p).expect("import ab1 error");
+        
+        // println!("{records:?}");
+        
+
+
+    }

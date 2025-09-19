@@ -7,3 +7,8 @@ edition = "2024"
 bincode = { version = "2.0.1", optional = true }
 na_seq = "0.3.6"  # Element, atom etc primitives
 bio = "2.3.0"  # For FASTA parsing.
+anyhow = "1"
+rust-htslib = "0.49"
+ndarray = "0.16"
+num_cpus = "1"
+gskits = "0.15"
