@@ -180,6 +180,8 @@ impl<R: Read + Seek> AbiFileReader<R> {
 pub struct AbiFile {
     header: Header,
     tagged_datas: Vec<TaggedData>,
+    data_entries: Vec<DirEntry>,
+    write_position: u32,
 }
 
 impl AbiFile {
@@ -188,12 +190,19 @@ impl AbiFile {
         Self {
             header,
             tagged_datas: vec![],
+            data_entries: vec![],
+            write_position: 0,
         }
     }
 
     pub fn push_tagged_data(&mut self, tagged_data: TaggedData) {
         self.header.dir_entry.element_size += 1;
         self.header.dir_entry.data_size += self.header.dir_entry.element_size as u32;
+        self.data_entries
+            .push(tagged_data.build_dir_entry(self.write_position));
+        if tagged_data.data.get_data_size() >= 4 {
+            self.write_position += tagged_data.data.get_data_size();
+        }
 
         self.tagged_datas.push(tagged_data);
     }
@@ -207,13 +216,14 @@ pub struct TaggedData {
 }
 
 impl TaggedData {
-    pub fn build_dir_entry(&self) -> DirEntry {
+    pub fn build_dir_entry(&self, data_offset: u32) -> DirEntry {
         let mut entry = DirEntry::default();
         entry.tag_name = self.tag.clone();
         entry.tag_number = self.tag_number;
         entry.element_type_code = self.data.element_code();
         entry.element_size = self.data.get_ele_size();
         entry.num_elements = self.data.get_num_ele();
+        entry.data_offset = data_offset;
         entry.data_size = self.data.get_data_size();
 
         if entry.data_size <= 4 {
