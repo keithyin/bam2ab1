@@ -13,7 +13,6 @@ use std::{
 };
 
 use anyhow::Context;
-use na_seq::seq_aa_to_str;
 
 use crate::pascal_str::PascalString;
 
@@ -216,6 +215,14 @@ impl TaggedData {
         entry.element_size = self.data.get_ele_size();
         entry.num_elements = self.data.get_num_ele();
         entry.data_size = self.data.get_data_size();
+
+        if entry.data_size <= 4 {
+            let mut b16_bytes = [0_u8; 4];
+            let data_bytes = self.data.to_bytes();
+            let copy_start = 4 - data_bytes.len();
+            b16_bytes[copy_start..].copy_from_slice(&data_bytes);
+            entry.data_offset = u32::from_be_bytes(b16_bytes);
+        }
 
         entry
     }
