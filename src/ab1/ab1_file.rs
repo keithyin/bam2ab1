@@ -17,7 +17,7 @@ use anyhow::Context;
 use crate::pascal_str::PascalString;
 
 const HEADER_SIZE: usize = 128;
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Header {
     pub magic_number: String,
     pub file_version: u16,
@@ -123,13 +123,17 @@ impl<R: Read + Seek> AbiFileReader<R> {
             .context("read header error")?;
 
         let header = Header::from_bytes(&header_bytes).context("bytes to header error")?;
-        eprintln!("{header:?}");
+        eprintln!("AbiFileReader:{header:?}");
 
         Ok(Self {
             stream,
             header,
             tagged_datas: vec![],
         })
+    }
+
+    pub fn header(&self) -> &Header {
+        &self.header
     }
 
     pub fn get_tagged_datas(&self) -> &[TaggedData] {
@@ -164,6 +168,8 @@ impl<R: Read + Seek> AbiFileReader<R> {
                 tag_buf
             };
 
+            eprintln!("tag_info:{dir:?}");
+
             let tag_data =
                 parse_tag_data(dir.element_type_code, dir.num_elements as usize, &tag_buf)?;
             self.tagged_datas.push(TaggedData {
@@ -191,20 +197,45 @@ impl AbiFile {
             header,
             tagged_datas: vec![],
             data_entries: vec![],
-            write_position: 0,
+            write_position: 128,
         }
     }
 
+    // pub fn set_header(&mut self, header: Header) {
+    //     self.header = header;
+    // }
+
     pub fn push_tagged_data(&mut self, tagged_data: TaggedData) {
-        self.header.dir_entry.element_size += 1;
-        self.header.dir_entry.data_size += self.header.dir_entry.element_size as u32;
+        self.header.dir_entry.num_elements += 1;
+        self.header.dir_entry.data_size =
+            self.header.dir_entry.element_size as u32 * self.header.dir_entry.num_elements;
         self.data_entries
             .push(tagged_data.build_dir_entry(self.write_position));
-        if tagged_data.data.get_data_size() >= 4 {
+        if tagged_data.data.get_data_size() > 4 {
             self.write_position += tagged_data.data.get_data_size();
         }
 
         self.tagged_datas.push(tagged_data);
+        self.header.dir_entry.data_offset = self.write_position;
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut result_bytes = vec![];
+        result_bytes.extend_from_slice(&self.header.to_bytes());
+
+        for tagged_data in &self.tagged_datas {
+            if tagged_data.data.get_data_size() > 4 {
+                result_bytes.extend_from_slice(&tagged_data.data.to_bytes());
+            }
+        }
+
+        // assert!()
+
+        for entry in &self.data_entries {
+            result_bytes.extend_from_slice(&entry.to_bytes());
+        }
+
+        result_bytes
     }
 }
 
@@ -491,11 +522,13 @@ pub fn build_data(tag_number: u32, data: Vec<u16>) -> TaggedData {
 
 #[cfg(test)]
 mod test {
-    use std::path;
+    use std::{io::Write, path};
+
+    use crate::ab1::ab1_file::AbiFileReader;
 
     #[test]
     fn test_read_ab1() {
-        let fpath = "/data-slow/kangwei-deliver/kangwei-deliver/S22509070002-Epi5A-1.ab1";
+        let fpath = "./test-data/S22509070002-Epi5A-1.ab1";
         let p = path::Path::new(fpath);
         let records = super::import_ab1(p).expect("import ab1 error");
         records.iter().for_each(|tagged_data| {
@@ -508,5 +541,36 @@ mod test {
             )
         });
         // println!("{records:?}");
+    }
+
+    #[test]
+    fn test_read_and_write_ab1() {
+        let fpath = "./test-data/S22509070002-Epi5A-1.ab1";
+        let file = std::fs::File::open(fpath).unwrap();
+        let mut reader = AbiFileReader::new(file).unwrap();
+        reader.extract_tagged_datas().unwrap();
+        let tagged_datas = reader.get_tagged_datas();
+        let header = reader.header();
+
+        let mut ab1_file = super::AbiFile::new(header.file_version);
+        tagged_datas.iter().for_each(|td| {
+            ab1_file.push_tagged_data(td.clone());
+        });
+
+        let ab1_filebytes = ab1_file.to_bytes();
+        let mut newfile = std::fs::File::create("./test-data/out.ab1").unwrap();
+        newfile.write_all(&ab1_filebytes).unwrap();
+        drop(newfile);
+
+        let records = super::import_ab1(&path::Path::new("./test-data/out.ab1")).unwrap();
+        records.iter().for_each(|tagged_data| {
+            println!(
+                "{}{}:{}->{}",
+                tagged_data.tag,
+                tagged_data.tag_number,
+                tagged_data.data.get_num_ele(),
+                tagged_data.data.truncated_result()
+            )
+        });
     }
 }
