@@ -12,3 +12,9 @@ rust-htslib = "0.49"
 ndarray = "0.16"
 num_cpus = "1"
 gskits = "0.15"
+clap = {version = "4", features = ["derive"]}
+
+
+[[bin]]
+name = "bam2ab1"
+path = "src/bam2ab1.rs"

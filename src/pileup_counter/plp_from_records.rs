@@ -201,11 +201,11 @@ pub fn count(msa_matrix: &Array2<u8>) -> Array2<f32> {
 mod test {
     use rust_htslib::bam::{Read, Record};
 
-    use crate::pileup_counter::{extract_seq_len_from_header, plp_from_records::plp_from_records};
+    use crate::pileup_counter::{extract_seq_info_from_header, plp_from_records::plp_from_records};
 
     #[test]
     fn test_plp_from_records() {
-        let fpath = "/data-slow/qingke-deliver-data/20250818_240601Y0012_Run0003/Group_0/barcodes_reads_cons_gen_amplicon/Consensus/Bam/Group_0_Adaptor-barcode295-2.sort.bam";
+        let fpath = "./test-data/Group_0_Adaptor-barcode295-2.sort.bam";
         let mut reader = rust_htslib::bam::Reader::from_path(fpath).unwrap();
         reader.set_threads(40).unwrap();
 
@@ -227,7 +227,8 @@ mod test {
             })
             .take(10)
             .collect();
-        let seq_len = extract_seq_len_from_header(reader.header()).unwrap();
+        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
+        let seq_len = seq_info.length;
         plp_from_records(&records, seq_len);
     }
 }

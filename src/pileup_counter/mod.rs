@@ -24,9 +24,15 @@ pub struct PlpInfo {
     pub minor: Vec<usize>,
 }
 
-pub fn extract_seq_len_from_header(header_view: &HeaderView) -> anyhow::Result<usize> {
+pub struct BamHeaderSeqInfo {
+    pub name: String,
+    pub length: usize,
+}
+
+pub fn extract_seq_info_from_header(header_view: &HeaderView) -> anyhow::Result<BamHeaderSeqInfo> {
     let header = rust_htslib::bam::Header::from_template(header_view);
     let header_hashmap = header.to_hashmap();
+
     if !header_hashmap.contains_key("SQ") {
         anyhow::bail!("invalid bam header. SQ not found");
     }
@@ -37,8 +43,15 @@ pub fn extract_seq_len_from_header(header_view: &HeaderView) -> anyhow::Result<u
     }
 
     let first_target_seq = &target_seq_infos[0];
+
+    println!("first_target_seq: {:?}", first_target_seq);
+
     if !first_target_seq.contains_key("LN") {
         anyhow::bail!("invalid bam header. LN not found");
+    }
+
+    if !first_target_seq.contains_key("SN") {
+        anyhow::bail!("invalid bam header. SN not found");
     }
 
     let ln_str = first_target_seq.get("LN").unwrap();
@@ -47,15 +60,20 @@ pub fn extract_seq_len_from_header(header_view: &HeaderView) -> anyhow::Result<u
         .parse::<usize>()
         .context(format!("parse {} to usize error", ln_str))?;
 
-    Ok(length)
+    let sn = first_target_seq.get("SN").unwrap();
+
+    Ok(BamHeaderSeqInfo {
+        name: sn.to_string(),
+        length,
+    })
 }
 
 pub fn pileup_counter(bam_fname: &str) -> anyhow::Result<()> {
     let mut index_reader = rust_htslib::bam::IndexedReader::from_path(bam_fname).unwrap();
     index_reader.set_threads(num_cpus::get_physical()).unwrap();
 
-    let target_seq_length = extract_seq_len_from_header(index_reader.header())?;
-
+    let target_seq_info = extract_seq_info_from_header(index_reader.header())?;
+    let target_seq_length = target_seq_info.length;
     // 6: A C G T GAP ins
     let mut counter = Array2::<f32>::zeros((target_seq_length, 6));
     let mut max_depth = 0;
