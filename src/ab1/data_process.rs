@@ -30,8 +30,12 @@ pub fn get_mu_list(length: usize, peak_width: usize) -> Vec<usize> {
 
 pub fn get_sigma_list(mu_list: &Vec<usize>) -> Vec<f32> {
     let k = 0.00005;
-    let c = 1.5;
-    mu_list.iter().map(|&mu| k * (mu as f32) + c).collect()
+    let c = 1.0;
+    mu_list
+        .iter()
+        .map(|&mu| k * (mu as f32) + c)
+        .map(|v| v.min(2.0))
+        .collect()
 }
 
 pub struct Gaussian {
