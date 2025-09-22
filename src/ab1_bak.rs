@@ -74,7 +74,6 @@ impl Header {
             data_offset: u32::from_be_bytes(bytes[22..26].try_into().unwrap()),
         })
     }
-
 }
 
 #[derive(Debug)]
@@ -378,7 +377,7 @@ fn abi_trim(seq_record: &fastq::Record) -> fastq::Record {
 
 #[derive(Debug)]
 enum TagData {
-    U8(Vec<u8>),
+    // U8(Vec<u8>),
     U16(Vec<u16>),
     U32(Vec<u32>),
     Str(String),
@@ -439,14 +438,6 @@ fn parse_tag_data(elem_code: u16, _elem_num: usize, data: &[u8]) -> io::Result<T
     }
 }
 
-fn read_string<R: Read>(reader: &mut R, length: usize) -> io::Result<String> {
-    let mut buffer = vec![0; length];
-    reader.read_exact(&mut buffer)?;
-    Ok(String::from_utf8_lossy(&buffer)
-        .trim_end_matches(char::from(0))
-        .to_string())
-}
-
 /// Read a file in the GenBank format.
 /// [Rust docs ref of fields](https://docs.rs/gb-io/latest/gb_io/seq/struct.Seq.html)
 pub fn import_ab1(path: &Path) -> io::Result<Vec<SeqRecordAb1>> {
@@ -462,16 +453,11 @@ pub fn import_ab1(path: &Path) -> io::Result<Vec<SeqRecordAb1>> {
     Ok(results)
 }
 
+#[test]
+fn test_read_ab1() {
+    let fpath = "/data-slow/kangwei-deliver/kangwei-deliver/S22509070002-Epi5A-1.ab1";
+    let p = path::Path::new(fpath);
+    let records = import_ab1(p).expect("import ab1 error");
 
-
-    #[test]
-    fn test_read_ab1() {
-        let fpath = "/data-slow/kangwei-deliver/kangwei-deliver/S22509070002-Epi5A-1.ab1";
-        let p = path::Path::new(fpath);
-        let records = import_ab1(p).expect("import ab1 error");
-        
-        // println!("{records:?}");
-        
-
-
-    }
+    // println!("{records:?}");
+}

@@ -528,7 +528,8 @@ mod test {
 
     #[test]
     fn test_read_ab1() {
-        let fpath = "./test-data/S22509070002-Epi5A-1.ab1";
+        // let fpath = "./test-data/S22509070002-Epi5A-1.ab1";
+        let fpath = "./test-data/Group_0_Adaptor-barcode295-2.sort.ab1";
         let p = path::Path::new(fpath);
         let records = super::import_ab1(p).expect("import ab1 error");
         records.iter().for_each(|tagged_data| {

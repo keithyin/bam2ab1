@@ -8,7 +8,7 @@ use crate::{
 use ndarray::{Array1, s};
 use std::f32::consts::PI;
 
-pub const MAX_PULSE: f32 = 50.;
+pub const MAX_PULSE: f32 = 400.;
 
 /// peak width . for example 10
 /// 1 2 3 4 5 p 6 7 8 9 10 11  12 13 14 15 16 p
@@ -30,11 +30,11 @@ pub fn get_mu_list(length: usize, peak_width: usize) -> Vec<usize> {
 
 pub fn get_sigma_list(mu_list: &Vec<usize>) -> Vec<f32> {
     let k = 0.00005;
-    let c = 1.0;
+    let c = 2.0;
     mu_list
         .iter()
         .map(|&mu| k * (mu as f32) + c)
-        .map(|v| v.min(2.0))
+        .map(|v| v.min(3.5))
         .collect()
 }
 
@@ -67,7 +67,7 @@ impl Gaussian {
         }
         let v1 = self.pulse / ((2.0 * PI).sqrt() * self.sigma);
         let v2 = (-(x - self.mu).powi(2) / (2.0 * self.sigma.powi(2))).exp();
-        v1 + v2
+        v1 * v2
     }
 }
 
@@ -76,7 +76,7 @@ pub fn transform_plp_info_2_ab1_data(
     target_seq: &str,
     sample_name: Option<String>,
 ) -> ab1_file::AbiFile {
-    let mu_list = get_mu_list(plp_info.major.len(), 10);
+    let mu_list = get_mu_list(plp_info.major.len(), 20);
     let sigma_list = get_sigma_list(&mu_list);
 
     let last_mu = (*mu_list.last().unwrap()) as f32;
@@ -86,22 +86,22 @@ pub fn transform_plp_info_2_ab1_data(
     let g_pulse = plp_info
         .normed_count
         .slice(s![BASE2IDX['G' as usize] as usize - 1, ..])
-        .mapv(|v| v * 50.);
+        .mapv(|v| v * MAX_PULSE);
 
     let a_pulse = plp_info
         .normed_count
         .slice(s![BASE2IDX['A' as usize] as usize - 1, ..])
-        .mapv(|v| v * 50.);
+        .mapv(|v| v * MAX_PULSE);
 
     let t_pulse = plp_info
         .normed_count
         .slice(s![BASE2IDX['T' as usize] as usize - 1, ..])
-        .mapv(|v| v * 50.);
+        .mapv(|v| v * MAX_PULSE);
 
     let c_pulse = plp_info
         .normed_count
         .slice(s![BASE2IDX['C' as usize] as usize - 1, ..])
-        .mapv(|v| v * 50.);
+        .mapv(|v| v * MAX_PULSE);
 
     let g_data = build_data(g_pulse, &mu_list, &sigma_list, last_tt);
     let a_data = build_data(a_pulse, &mu_list, &sigma_list, last_tt);
@@ -168,7 +168,7 @@ pub fn build_data(
             gaussians
                 .iter()
                 .map(|gauss| gauss.compute(tt as f32))
-                .sum::<f32>() as u16
+                .sum::<f32>().round() as u16
         })
         .collect()
 }

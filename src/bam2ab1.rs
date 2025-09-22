@@ -84,6 +84,9 @@ fn main() {
         })
         .collect();
     let plp_info = plp_from_records(&records, seq_info.length);
+
+    let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
+
     let ab1_file =
         transform_plp_info_2_ab1_data(&plp_info, reference_sequence, Some(seq_info.name.clone()));
 

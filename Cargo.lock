@@ -109,6 +109,7 @@ dependencies = [
  "na_seq",
  "ndarray",
  "num_cpus",
+ "ordered-float",
  "rust-htslib",
 ]
 
