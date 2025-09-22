@@ -99,7 +99,7 @@ pub fn extract_seq_info_from_header(header_view: &HeaderView) -> anyhow::Result<
 
     let first_target_seq = &target_seq_infos[0];
 
-    println!("first_target_seq: {:?}", first_target_seq);
+    // println!("first_target_seq: {:?}", first_target_seq);
 
     if !first_target_seq.contains_key("LN") {
         anyhow::bail!("invalid bam header. LN not found");
