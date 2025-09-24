@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use bam2ab1::{
-    ab1::data_process::transform_plp_info_2_ab1_data,
+    ab1::data_process::transform_plp_info_2_ab1_data_with_deletion_shrink,
     pileup_counter::{extract_seq_info_from_header, plp_from_records::plp_from_records},
 };
 use clap::Parser;
@@ -54,6 +54,7 @@ fn main() {
             "ERROR: Only support one reference sequence. but got {}",
             fasta_records.len()
         );
+        return;
     }
 
     let reference_sequence = &fasta_records[0].seq;
@@ -100,12 +101,23 @@ fn main() {
         return;
     }
 
-    let plp_info = plp_from_records(&records, seq_info.length);
-
+    let mut plp_info = plp_from_records(&records, seq_info.length);
+    plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
     let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
 
-    let ab1_file =
-        transform_plp_info_2_ab1_data(&plp_info, reference_sequence, Some(seq_info.name.clone()));
+    // let plp_info = plp_from_records_left_align(&records, seq_info.length);
+    // let plp_info = plp_info.drop_low_ratio_ins_locus(0.);
+
+    // let ab1_file =
+    //     transform_plp_info_2_ab1_data(&plp_info, reference_sequence, Some(seq_info.name.clone()));
+
+    let peak_width = Some(20);
+    let ab1_file = transform_plp_info_2_ab1_data_with_deletion_shrink(
+        &plp_info,
+        reference_sequence,
+        peak_width,
+        Some(seq_info.name.clone()),
+    );
 
     match std::fs::File::create(&output_fpath) {
         Ok(mut file) => {

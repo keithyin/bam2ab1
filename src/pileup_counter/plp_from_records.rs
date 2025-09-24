@@ -107,6 +107,53 @@ pub fn plp_from_records(records: &Vec<Record>, target_len: usize) -> super::PlpI
     }
 }
 
+pub fn plp_from_records_left_align(records: &Vec<Record>, target_len: usize) -> super::PlpInfo {
+    let mut left_align_matrix = Array2::<u8>::from_elem((records.len(), target_len), '-' as u8);
+    records.iter().enumerate().for_each(|(idx, record)| {
+        let ext = BamRecordExt::new(record);
+        let seq = ext.get_seq();
+        let seq_bytes = seq.as_bytes();
+        let t_start = ext.reference_start();
+        let mut qstart = ext.query_alignment_start();
+        let qend = ext.query_alignment_end();
+        let t_end = (t_start + qend - qstart).min(target_len);
+        left_align_matrix
+            .slice_mut(s![idx, ..])
+            .iter_mut()
+            .enumerate()
+            .for_each(|(tt, value)| {
+                if tt >= t_start && qstart < qend && tt < t_end {
+                    *value = seq_bytes[qstart];
+                    qstart += 1;
+                }
+            });
+    });
+
+    let major = (0..target_len).into_iter().collect::<Vec<usize>>();
+    let minor = vec![0_usize; target_len];
+
+    let mut plp_count = count(&left_align_matrix);
+    // println!("{:?}", plp_count);
+
+    let major_depth = compute_major_depth(target_len, &records);
+
+    plp_count
+        .axis_iter_mut(Axis(1))
+        .enumerate()
+        .for_each(|(locus, mut plp_c)| {
+            let cur_major = major[locus];
+            let cur_depth = *major_depth.get(&cur_major).unwrap() as f32;
+            plp_c.mapv_inplace(|v| v / cur_depth);
+        });
+
+
+    super::PlpInfo {
+        normed_count: plp_count,
+        major: major,
+        minor: minor,
+    }
+}
+
 fn build_one_record_of_msa(
     record: &Record,
     major_pos2major_starting_point: &HashMap<usize, usize>,
