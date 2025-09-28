@@ -50,16 +50,16 @@ fn main() {
 
     let output_path = path::Path::new(&output_fpath);
     let output_root = output_path.parent().unwrap();
-    let output_stem = output_path.file_stem().unwrap().to_str().unwrap().to_string();
+    let output_stem = output_path
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
 
     let fasta_reader = FastaFileReader::new(cli.reference.clone());
 
     let fasta_records = read_fastx(fasta_reader);
-    let name2idx = fasta_records
-        .iter()
-        .enumerate()
-        .map(|(idx, record)| (record.name.clone(), idx))
-        .collect::<HashMap<_, _>>();
 
     let fasta_records = fasta_records
         .into_iter()
@@ -160,14 +160,11 @@ fn main() {
             Some(seq_info.name.clone()),
         );
 
-        let idx = name2idx.get(&name);
-        if idx.is_none() {
-            eprintln!("WARN: empty records",);
-            return;
-        }
-
-        let idx = idx.unwrap();
-
+        let idx = if name.contains("|") {
+            name.split_once("|").unwrap().0.to_string()
+        } else {
+            name.clone()
+        };
 
         let o_path = output_root.join(format!("{}.{}.ab1", output_stem, idx));
         match std::fs::File::create(&o_path) {
