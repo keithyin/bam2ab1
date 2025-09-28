@@ -2,6 +2,11 @@
 name = "bam2ab1"
 version = "0.1.0"
 edition = "2024"
+description = "bam2ab1"
+license = "MIT"
+exclude = [
+    "test-data/*"
+]
 
 [dependencies]
 bincode = { version = "2.0.1", optional = true }

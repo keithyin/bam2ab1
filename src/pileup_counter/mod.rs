@@ -17,6 +17,7 @@ pub static BASE2IDX: [u8; 256] = {
     table
 };
 
+#[derive(Debug)]
 pub struct PlpInfo {
     pub normed_count: Array2<f32>, // (4, step), 4: GATC . ratio
     pub major: Vec<usize>,

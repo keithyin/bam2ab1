@@ -56,10 +56,10 @@ pub fn plp_from_records(records: &Vec<Record>, target_len: usize) -> super::PlpI
         );
     });
 
-    // println!("{:?}", msa_matrix.mapv(char::from));
-
     let mut plp_count = count(&msa_matrix);
-    // println!("{:?}", plp_count);
+
+    println!("{:?}", msa_matrix.mapv(char::from).slice(s![.., 5..15]));
+    println!("{:?}", plp_count.slice(s![.., 5..15]));
 
     let major_depth = compute_major_depth(target_len, &records);
 
@@ -145,7 +145,6 @@ pub fn plp_from_records_left_align(records: &Vec<Record>, target_len: usize) -> 
             let cur_depth = *major_depth.get(&cur_major).unwrap() as f32;
             plp_c.mapv_inplace(|v| v / cur_depth);
         });
-
 
     super::PlpInfo {
         normed_count: plp_count,
@@ -246,6 +245,8 @@ pub fn count(msa_matrix: &Array2<u8>) -> Array2<f32> {
 
 #[cfg(test)]
 mod test {
+    use gskits::fastx_reader::{fasta_reader::FastaFileReader, read_fastx};
+    use ndarray::s;
     use rust_htslib::bam::{Read, Record};
 
     use crate::pileup_counter::{extract_seq_info_from_header, plp_from_records::plp_from_records};
@@ -277,5 +278,91 @@ mod test {
         let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
         let seq_len = seq_info.length;
         plp_from_records(&records, seq_len);
+    }
+
+    #[test]
+    fn test_plp_from_records_2() {
+        let fpath = "./test-data/Group_0_Adaptor-barcode201-1.sort.bam";
+        let mut reader = rust_htslib::bam::Reader::from_path(fpath).unwrap();
+        reader.set_threads(40).unwrap();
+
+        let mut record = Record::new();
+        let mut records = vec![];
+        loop {
+            if let Some(Ok(_)) = reader.read(&mut record) {
+                records.push(record);
+                record = Record::new();
+            } else {
+                break;
+            }
+        }
+
+        records = records
+            .into_iter()
+            .filter(|record| {
+                !record.is_unmapped() && !record.is_secondary() && !record.is_supplementary()
+            })
+            .collect();
+        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
+        let seq_len = seq_info.length;
+        // let seq_len = 14;
+        let mut plp_info = plp_from_records(&records, seq_len);
+
+        println!("{:?}", &plp_info.major[10..20]);
+        println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
+
+        let fasta_reader = FastaFileReader::new(
+            "test-data/Group_0_Adaptor-barcode201-1.consensus.fasta".to_string(),
+        );
+        let fasta_records = read_fastx(fasta_reader);
+
+        let reference_sequence = &fasta_records[0].seq;
+        plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+
+        println!("-----------------------AFTER----------------");
+        println!("{:?}", &plp_info.major[10..20]);
+        println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
+    }
+
+    #[test]
+    fn test_plp_from_records_3() {
+        let fpath = "./test-data/channel_340564.bam";
+        let mut reader = rust_htslib::bam::Reader::from_path(fpath).unwrap();
+        reader.set_threads(40).unwrap();
+
+        let mut record = Record::new();
+        let mut records = vec![];
+        loop {
+            if let Some(Ok(_)) = reader.read(&mut record) {
+                records.push(record);
+                record = Record::new();
+            } else {
+                break;
+            }
+        }
+
+        records = records
+            .into_iter()
+            .filter(|record| {
+                !record.is_unmapped() && !record.is_secondary() && !record.is_supplementary()
+            })
+            .collect();
+        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
+        let seq_len = seq_info.length;
+        // let seq_len = 14;
+        let mut plp_info = plp_from_records(&records, seq_len);
+
+        println!("{:?}", &plp_info.major[30..40]);
+        println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
+
+        let fasta_reader = FastaFileReader::new("test-data/340564.fasta".to_string());
+        let fasta_records = read_fastx(fasta_reader);
+
+        let reference_sequence = &fasta_records[0].seq;
+        plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+
+        println!("-----------------------AFTER----------------");
+        println!("{:?}", &plp_info.major[30..40]);
+        println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
     }
 }
