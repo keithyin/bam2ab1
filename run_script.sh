@@ -36,6 +36,8 @@ process_file() {
     fi
 }
 
+
+
 # 主处理循环
 find "$BAM_DIR" -name "*.bam" | while read -r bam; do
     process_file "$bam"

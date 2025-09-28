@@ -58,8 +58,8 @@ pub fn plp_from_records(records: &Vec<Record>, target_len: usize) -> super::PlpI
 
     let mut plp_count = count(&msa_matrix);
 
-    println!("{:?}", msa_matrix.mapv(char::from).slice(s![.., 5..15]));
-    println!("{:?}", plp_count.slice(s![.., 5..15]));
+    // println!("{:?}", msa_matrix.mapv(char::from).slice(s![.., 5..15]));
+    // println!("{:?}", plp_count.slice(s![.., 5..15]));
 
     let major_depth = compute_major_depth(target_len, &records);
 
@@ -275,9 +275,11 @@ mod test {
             })
             .take(10)
             .collect();
-        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
-        let seq_len = seq_info.length;
-        plp_from_records(&records, seq_len);
+        let seq_infos = extract_seq_info_from_header(reader.header()).unwrap();
+        for seq_info in seq_infos {
+            let seq_len = seq_info.length;
+            plp_from_records(&records, seq_len);
+        }
     }
 
     #[test]
@@ -303,25 +305,28 @@ mod test {
                 !record.is_unmapped() && !record.is_secondary() && !record.is_supplementary()
             })
             .collect();
-        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
-        let seq_len = seq_info.length;
-        // let seq_len = 14;
-        let mut plp_info = plp_from_records(&records, seq_len);
+        let seq_infos = extract_seq_info_from_header(reader.header()).unwrap();
 
-        println!("{:?}", &plp_info.major[10..20]);
-        println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
+        for seq_info in seq_infos {
+            let seq_len = seq_info.length;
+            // let seq_len = 14;
+            let mut plp_info = plp_from_records(&records, seq_len);
 
-        let fasta_reader = FastaFileReader::new(
-            "test-data/Group_0_Adaptor-barcode201-1.consensus.fasta".to_string(),
-        );
-        let fasta_records = read_fastx(fasta_reader);
+            println!("{:?}", &plp_info.major[10..20]);
+            println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
 
-        let reference_sequence = &fasta_records[0].seq;
-        plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+            let fasta_reader = FastaFileReader::new(
+                "test-data/Group_0_Adaptor-barcode201-1.consensus.fasta".to_string(),
+            );
+            let fasta_records = read_fastx(fasta_reader);
 
-        println!("-----------------------AFTER----------------");
-        println!("{:?}", &plp_info.major[10..20]);
-        println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
+            let reference_sequence = &fasta_records[0].seq;
+            plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+
+            println!("-----------------------AFTER----------------");
+            println!("{:?}", &plp_info.major[10..20]);
+            println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
+        }
     }
 
     #[test]
@@ -347,22 +352,24 @@ mod test {
                 !record.is_unmapped() && !record.is_secondary() && !record.is_supplementary()
             })
             .collect();
-        let seq_info = extract_seq_info_from_header(reader.header()).unwrap();
-        let seq_len = seq_info.length;
-        // let seq_len = 14;
-        let mut plp_info = plp_from_records(&records, seq_len);
+        let seq_infos = extract_seq_info_from_header(reader.header()).unwrap();
+        for seq_info in seq_infos {
+            let seq_len = seq_info.length;
+            // let seq_len = 14;
+            let mut plp_info = plp_from_records(&records, seq_len);
 
-        println!("{:?}", &plp_info.major[30..40]);
-        println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
+            println!("{:?}", &plp_info.major[30..40]);
+            println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
 
-        let fasta_reader = FastaFileReader::new("test-data/340564.fasta".to_string());
-        let fasta_records = read_fastx(fasta_reader);
+            let fasta_reader = FastaFileReader::new("test-data/340564.fasta".to_string());
+            let fasta_records = read_fastx(fasta_reader);
 
-        let reference_sequence = &fasta_records[0].seq;
-        plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+            let reference_sequence = &fasta_records[0].seq;
+            plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
 
-        println!("-----------------------AFTER----------------");
-        println!("{:?}", &plp_info.major[30..40]);
-        println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
+            println!("-----------------------AFTER----------------");
+            println!("{:?}", &plp_info.major[30..40]);
+            println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
+        }
     }
 }

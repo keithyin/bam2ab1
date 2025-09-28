@@ -207,7 +207,9 @@ pub struct BamHeaderSeqInfo {
     pub length: usize,
 }
 
-pub fn extract_seq_info_from_header(header_view: &HeaderView) -> anyhow::Result<BamHeaderSeqInfo> {
+pub fn extract_seq_info_from_header(
+    header_view: &HeaderView,
+) -> anyhow::Result<Vec<BamHeaderSeqInfo>> {
     let header = rust_htslib::bam::Header::from_template(header_view);
     let header_hashmap = header.to_hashmap();
 
@@ -216,48 +218,45 @@ pub fn extract_seq_info_from_header(header_view: &HeaderView) -> anyhow::Result<
     }
 
     let target_seq_infos = header_hashmap.get("SQ").unwrap();
-    if target_seq_infos.len() > 1 {
-        anyhow::bail!("more than one target seqs. not supported now");
+    // if target_seq_infos.len() > 1 {
+    //     anyhow::bail!("more than one target seqs. not supported now");
+    // }
+
+    let mut results = vec![];
+
+    for seq_info in target_seq_infos {
+        if !seq_info.contains_key("LN") {
+            anyhow::bail!("invalid bam header. LN not found");
+        }
+
+        if !seq_info.contains_key("SN") {
+            anyhow::bail!("invalid bam header. SN not found");
+        }
+
+        let ln_str = seq_info.get("LN").unwrap();
+
+        let length = ln_str
+            .parse::<usize>()
+            .context(format!("parse {} to usize error", ln_str))?;
+
+        let sn = seq_info.get("SN").unwrap();
+
+        results.push(BamHeaderSeqInfo {
+            name: sn.to_string(),
+            length,
+        });
     }
 
-    let first_target_seq = &target_seq_infos[0];
-
-    // println!("first_target_seq: {:?}", first_target_seq);
-
-    if !first_target_seq.contains_key("LN") {
-        anyhow::bail!("invalid bam header. LN not found");
-    }
-
-    if !first_target_seq.contains_key("SN") {
-        anyhow::bail!("invalid bam header. SN not found");
-    }
-
-    let ln_str = first_target_seq.get("LN").unwrap();
-
-    let length = ln_str
-        .parse::<usize>()
-        .context(format!("parse {} to usize error", ln_str))?;
-
-    let sn = first_target_seq.get("SN").unwrap();
-
-    Ok(BamHeaderSeqInfo {
-        name: sn.to_string(),
-        length,
-    })
+    Ok(results)
 }
-
-
 
 #[cfg(test)]
 mod test {
     use crate::pileup_counter::PlpInfo;
 
-    
     #[test]
     fn test_plp_info() {
 
         // let mut plp_info = PlpInfo{normed_count: }
-
     }
-    
 }

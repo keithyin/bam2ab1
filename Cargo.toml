@@ -1,6 +1,6 @@
 [package]
 name = "bam2ab1"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "bam2ab1"
 license = "MIT"
