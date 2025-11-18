@@ -2,6 +2,7 @@ pub mod ab1;
 pub mod ab1_bak;
 pub mod pascal_str;
 pub mod pileup_counter;
+pub mod utils;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
 use anyhow::Context;
-use ndarray::{Array2, Axis, stack};
+use ndarray::{Array2, Axis, stack, s};
 use ordered_float::OrderedFloat;
 use rust_htslib::{self, bam::HeaderView};
+
+use crate::utils::binary_search_lower_bound;
 
 pub mod plp_from_records;
 
@@ -25,6 +27,19 @@ pub struct PlpInfo {
 }
 
 impl PlpInfo {
+
+    pub fn print_major(&self, col: usize) {
+        let pos = binary_search_lower_bound(&self.major, &col);
+        let start  = pos.saturating_sub(5);
+        let end = (pos + 5).min(self.major.len());
+
+        for cursor in start..end {
+            println!("tt:{} -> {:?}", self.major[cursor], self.normed_count.slice(s![.., cursor]));
+        }
+        println!("-------------------------------------------------------------------------------")
+
+    }
+
     // snp 5%, nh_indel: 10%, homo_indel: 45%
     pub fn modify_ratio(
         &mut self,
@@ -54,11 +69,15 @@ impl PlpInfo {
                 let base_idx = BASE2IDX[base as usize] as usize - 1;
 
                 let mut is_homo = false;
-                if maj > 0 {
-                    is_homo |= seq[maj] == seq[maj - 1];
-                }
+
+
+                // if maj > 0 {
+                //     is_homo |= seq[maj] == seq[maj - 1];
+                // }
                 if (maj + 1) < seq.len() {
-                    is_homo |= seq[maj] == seq[maj + 1];
+                    let maj_base = seq[maj];
+                    let cnt = ((maj+1)..(maj+4).min(seq.len())).into_iter().map(|pos| if seq[pos] == maj_base {1} else {0}).sum::<usize>();
+                    is_homo = cnt == 3;
                 }
 
                 let gap_ratio = 1.0 - gatc_ratio.sum();
@@ -79,7 +98,7 @@ impl PlpInfo {
                         */
 
                         if gap_ratio < nh_indel_thr {
-                            gatc_ratio[base_idx] += gap_ratio;
+                            // gatc_ratio[base_idx] += gap_ratio;
                         }
 
                         for iter_idx in 0_usize..4 {
@@ -91,10 +110,10 @@ impl PlpInfo {
                             }
                         }
                     } else {
-                        // non-homo ins retion
+                        // non-homo ins region
 
                         /*
-                            non homo insertion  ins retion
+                            non homo insertion  ins region
                                             |
                            consensus: A C G - T
                            smc1     : A C G A T
@@ -117,7 +136,7 @@ impl PlpInfo {
                         */
 
                         if gap_ratio < homo_indel_thr {
-                            gatc_ratio[base_idx] += gap_ratio;
+                            // gatc_ratio[base_idx] += gap_ratio;
                         }
 
                         for iter_idx in 0_usize..4 {
