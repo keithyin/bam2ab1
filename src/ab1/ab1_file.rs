@@ -415,8 +415,16 @@ pub fn build_ploc1(data: Vec<u16>) -> TaggedData {
         data: Data::U16(data),
     }
 }
-// FWO_1: char[] base order sequencing analysis filter wheel order. fixed for 3500 GATC
 
+pub fn build_pcon1(data: Vec<u8>) -> TaggedData {
+    TaggedData {
+        tag: format!("PCON"),
+        tag_number: 1,
+        data: Data::U8(data),
+    }
+}
+
+// FWO_1: char[] base order sequencing analysis filter wheel order. fixed for 3500 GATC
 pub fn build_fwo_1() -> TaggedData {
     TaggedData {
         tag: format!("FWO_"),

@@ -260,6 +260,7 @@ pub fn transform_plp_info_2_ab1_data_with_deletion_shrink(
     let data10 = ab1_file::build_data(10, a_data);
     let data11 = ab1_file::build_data(11, t_data);
     let data12 = ab1_file::build_data(12, c_data);
+    let pcon1 = ab1_file::build_pcon1(vec![40; target_seq.len()]);
 
     let mut ab1_file = ab1_file::AbiFile::new(101);
     ab1_file.push_tagged_data(ploc1);
@@ -275,6 +276,7 @@ pub fn transform_plp_info_2_ab1_data_with_deletion_shrink(
     ab1_file.push_tagged_data(data10);
     ab1_file.push_tagged_data(data11);
     ab1_file.push_tagged_data(data12);
+    // ab1_file.push_tagged_data(pcon1);
 
     ab1_file
 }
