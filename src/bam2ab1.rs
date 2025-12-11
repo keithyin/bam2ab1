@@ -24,6 +24,9 @@ struct Cli {
 
     #[arg(short = 'o', help = "output ab1 file path")]
     pub output_fpath: Option<String>,
+
+    #[arg(long = "width")]
+    pub base_width: Option<usize>,
 }
 
 impl Cli {
@@ -149,7 +152,7 @@ fn main() {
         let reference_sequence = &fasta_seq_info.seq;
 
         let mut plp_info = plp_from_records(&records, seq_info.length);
-        
+
         // plp_info.print_major(3);
 
         plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
@@ -159,9 +162,13 @@ fn main() {
         let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
 
         // plp_info.print_major(3);
+        let peak_width = if cli.base_width.is_none() {
+            Some(((u16::MAX) as usize / seq_info.length - 1).min(20).max(3))
+        } else {
+            cli.base_width
+        };
+        println!("peak_width: {peak_width:?}");
 
-
-        let peak_width = Some(20);
         let ab1_file = transform_plp_info_2_ab1_data_with_deletion_shrink(
             &plp_info,
             reference_sequence,
