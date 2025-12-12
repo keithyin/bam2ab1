@@ -4,13 +4,14 @@ from abifpy import Trace
 
 
 def main():
-    fname = "/data1/ab1-debug/S22509070002-Epi5A-1.ab1"
+    # fname = "/data1/ab1-debug/kangwei-ab1-data/Sequence/S22512022101-A1_1.ab1"
+    fname = ""
     yummy = Trace(fname)
     print(np.array(yummy.get_data("PLOC1")).astype(np.int16).view(np.uint16))
-    print(np.array(yummy.get_data("DATA9"))[:10])
-    print(np.array(yummy.get_data("DATA10"))[:10])
-    print(np.array(yummy.get_data("DATA11"))[:10])
-    print(np.array(yummy.get_data("DATA12"))[:10])
+    print(np.array(yummy.get_data("DATA9"))[:50])
+    print(np.array(yummy.get_data("DATA10"))[:50])
+    print(np.array(yummy.get_data("DATA11"))[:50])
+    print(np.array(yummy.get_data("DATA12"))[:50])
     print(yummy)
     pass
 
