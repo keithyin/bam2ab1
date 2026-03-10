@@ -27,6 +27,15 @@ struct Cli {
 
     #[arg(long = "width")]
     pub base_width: Option<usize>,
+
+    #[arg(long = "chunkSize")]
+    pub chunk_size: Option<usize>,
+
+    #[arg(long = "ovlpSize")]
+    pub ovlp_size: Option<usize>,
+
+    #[arg(long="bamReadThreads", default_value_t = 1)]
+    pub bam_reader_threads: usize
 }
 
 impl Cli {
@@ -75,7 +84,7 @@ fn main() {
     }
 
     let mut bam_reader = rust_htslib::bam::Reader::from_path(&cli.bam).unwrap();
-    bam_reader.set_threads(num_cpus::get_physical()).unwrap();
+    bam_reader.set_threads(cli.bam_reader_threads).unwrap();
 
     let bam_header_sq_records = extract_seq_info_from_header(bam_reader.header())
         .unwrap()
@@ -151,49 +160,75 @@ fn main() {
 
         let reference_sequence = &fasta_seq_info.seq;
 
-        let mut plp_info = plp_from_records(&records, seq_info.length);
+        let chunk_size = cli.chunk_size.unwrap_or(reference_sequence.len());
+        let ovlp_size = cli.ovlp_size.unwrap_or(0);
 
-        // plp_info.print_major(3);
+        let mut window_start = 0;
+        while window_start < reference_sequence.len() {
+            let window_end = window_start + chunk_size;
+            let window_end = if (window_end + ovlp_size) > reference_sequence.len() {
+                reference_sequence.len()
+            } else {
+                window_end
+            };
 
-        plp_info.modify_ratio(reference_sequence.as_bytes(), 0.05, 0.1, 0.45);
+            let mut plp_info = plp_from_records(&records, window_start, window_end);
 
-        // plp_info.print_major(3);
+            // plp_info.print_major(3);
 
-        let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
+            plp_info.modify_ratio(
+                &reference_sequence.as_bytes()[window_start..window_end],
+                0.05,
+                0.1,
+                0.45,
+            );
 
-        // plp_info.print_major(3);
-        let peak_width = if cli.base_width.is_none() {
-            Some(((u16::MAX) as usize / seq_info.length - 1).min(20).max(3))
-        } else {
-            cli.base_width
-        };
-        println!("peak_width: {peak_width:?}");
+            // plp_info.print_major(3);
 
-        let ab1_file = transform_plp_info_2_ab1_data_with_deletion_shrink(
-            &plp_info,
-            reference_sequence,
-            peak_width,
-            Some(seq_info.name.clone()),
-        );
+            let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
 
-        let idx = if name.contains("|") {
-            name.split_once("|").unwrap().0.to_string()
-        } else {
-            name.clone()
-        };
+            // plp_info.print_major(3);
+            let peak_width = if cli.base_width.is_none() {
+                Some(((u16::MAX) as usize / seq_info.length - 1).min(20).max(3))
+            } else {
+                cli.base_width
+            };
+            println!("peak_width: {peak_width:?}");
 
-        let o_path = output_root.join(format!("{}.{}.ab1", output_stem, idx));
-        match std::fs::File::create(&o_path) {
-            Ok(mut file) => {
-                if let Err(err) = file.write_all(&ab1_file.to_bytes()) {
-                    eprintln!("ERROR: write to file error. {}", err);
-                } else {
-                    println!("Success, write to : {:?}", o_path);
+            let ab1_file = transform_plp_info_2_ab1_data_with_deletion_shrink(
+                &plp_info,
+                &reference_sequence[window_start..window_end],
+                peak_width,
+                Some(seq_info.name.clone()),
+            );
+
+            let idx = if name.contains("|") {
+                name.split_once("|").unwrap().0.to_string()
+            } else {
+                name.clone()
+            };
+
+            let o_path = output_root.join(format!(
+                "{}.{}.{}-{}.ab1",
+                output_stem, idx, window_start, window_end
+            ));
+            match std::fs::File::create(&o_path) {
+                Ok(mut file) => {
+                    if let Err(err) = file.write_all(&ab1_file.to_bytes()) {
+                        eprintln!("ERROR: write to file error. {}", err);
+                    } else {
+                        println!("Success, write to : {:?}", o_path);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("ERROR: create file error: {}", err);
                 }
             }
-            Err(err) => {
-                eprintln!("ERROR: create file error: {}", err);
+
+            if window_end >= reference_sequence.len() {
+                break;
             }
+            window_start = window_end - ovlp_size;
         }
     });
 }

@@ -8,9 +8,9 @@ use rust_htslib::bam::{Record, ext::BamRecordExtensions};
 
 use crate::pileup_counter::BASE2IDX;
 
-pub fn plp_from_records(records: &Vec<Record>, target_len: usize) -> super::PlpInfo {
+pub fn plp_from_records(records: &Vec<Record>, target_start: usize, target_len: usize) -> super::PlpInfo {
     let major_pos_ins =
-        compute_max_ins_of_each_ref_position(&records, Some(0), Some(target_len), None);
+        compute_max_ins_of_each_ref_position(&records, Some(target_start), Some(target_len), None);
 
     let mut major_pos_ins_vec = major_pos_ins
         .iter()
@@ -278,7 +278,7 @@ mod test {
         let seq_infos = extract_seq_info_from_header(reader.header()).unwrap();
         for seq_info in seq_infos {
             let seq_len = seq_info.length;
-            plp_from_records(&records, seq_len);
+            plp_from_records(&records, 0, seq_len);
         }
     }
 
@@ -310,7 +310,7 @@ mod test {
         for seq_info in seq_infos {
             let seq_len = seq_info.length;
             // let seq_len = 14;
-            let mut plp_info = plp_from_records(&records, seq_len);
+            let mut plp_info = plp_from_records(&records, 0, seq_len);
 
             println!("{:?}", &plp_info.major[10..20]);
             println!("{:?}", plp_info.normed_count.slice(s![.., 10..20]).t());
@@ -356,7 +356,7 @@ mod test {
         for seq_info in seq_infos {
             let seq_len = seq_info.length;
             // let seq_len = 14;
-            let mut plp_info = plp_from_records(&records, seq_len);
+            let mut plp_info = plp_from_records(&records, 0, seq_len);
 
             println!("{:?}", &plp_info.major[30..40]);
             println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
