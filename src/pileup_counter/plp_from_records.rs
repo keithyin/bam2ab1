@@ -8,15 +8,27 @@ use rust_htslib::bam::{Record, ext::BamRecordExtensions};
 
 use crate::pileup_counter::BASE2IDX;
 
-pub fn plp_from_records(records: &Vec<Record>, target_start: usize, target_len: usize) -> super::PlpInfo {
+pub fn plp_from_records(
+    records: &Vec<Record>,
+    target_start: usize,
+    target_end: usize,
+) -> super::PlpInfo {
     let major_pos_ins =
-        compute_max_ins_of_each_ref_position(&records, Some(target_start), Some(target_len), None);
+        compute_max_ins_of_each_ref_position(&records, Some(target_start), Some(target_end), None);
 
     let mut major_pos_ins_vec = major_pos_ins
         .iter()
         .map(|(&k, &v)| (k as usize, v as usize))
         .collect::<Vec<_>>();
     major_pos_ins_vec.sort_by_key(|v| v.0);
+
+    let mut sampled_values_for_print = major_pos_ins
+        .iter()
+        .filter(|(k, v)| **k > 450 && **k < 470)
+        .map(|(k, v)| (*k, *v))
+        .collect::<Vec<(i64, i32)>>();
+    sampled_values_for_print.sort_by_key(|v| v.0);
+    // println!("major_pos_ins_vec:{sampled_values_for_print:?}");
     // (0..(ins_size+1)).into_iter().collect::<Vec<_>>())
 
     let major = major_pos_ins_vec
@@ -51,17 +63,24 @@ pub fn plp_from_records(records: &Vec<Record>, target_start: usize, target_len: 
     records.iter().enumerate().for_each(|(idx, record)| {
         build_one_record_of_msa(
             record,
+            target_start,
+            target_end,
             &major_pos2major_starting_point,
             msa_matrix.slice_mut(s![idx, ..]),
         );
     });
 
+    // let start_450 = major_pos2major_starting_point[&450];
+    // println!("msa: \n{:?}", msa_matrix.slice(s![.., start_450..start_450+20]));
+
     let mut plp_count = count(&msa_matrix);
+
+    // println!("plp_count:\n {:?}", plp_count.slice(s![.., start_450..start_450+20]));
 
     // println!("{:?}", msa_matrix.mapv(char::from).slice(s![.., 5..15]));
     // println!("{:?}", plp_count.slice(s![.., 5..15]));
 
-    let major_depth = compute_major_depth(target_len, &records);
+    let major_depth = compute_major_depth(target_end, &records);
 
     plp_count
         .axis_iter_mut(Axis(1))
@@ -74,22 +93,24 @@ pub fn plp_from_records(records: &Vec<Record>, target_start: usize, target_len: 
 
     let mut major = major;
     let mut minor = minor;
-    if first_major > 0 {
-        let pad = Array2::<f32>::from_elem((4, first_major), 0.0);
+    if first_major > target_start {
+        let pad = Array2::<f32>::from_elem((4, first_major - target_start), 0.0);
         plp_count = concatenate![Axis(1), pad, plp_count];
-        let mut header = (0..first_major).into_iter().collect::<Vec<usize>>();
+        let mut header = (target_start..first_major)
+            .into_iter()
+            .collect::<Vec<usize>>();
         header.extend_from_slice(&major);
         major = header;
 
-        let mut header = vec![0; first_major];
+        let mut header = vec![0; first_major - target_start];
         header.extend_from_slice(&minor);
         minor = header;
     }
-    if (last_major + 1) < target_len {
-        let pad_len = target_len - last_major - 1;
+    if (last_major + 1) < target_end {
+        let pad_len = target_end - last_major - 1;
         let pad = Array2::<f32>::from_elem((4, pad_len), 0.0);
         plp_count = concatenate![Axis(1), plp_count, pad];
-        let tail = (last_major + 1..target_len)
+        let tail = (last_major + 1..target_end)
             .into_iter()
             .collect::<Vec<usize>>();
         major.extend_from_slice(&tail);
@@ -98,7 +119,14 @@ pub fn plp_from_records(records: &Vec<Record>, target_start: usize, target_len: 
         minor.extend_from_slice(&tail);
     }
 
+    // println!(
+    //     "plp_ratio:\n {:?}",
+    //     plp_count.slice(s![.., start_450..start_450 + 40])
+    // );
+
     // println!("{:?}", plp_count);
+
+    let major = major.into_iter().map(|v| v - target_start).collect::<Vec<usize>>();
 
     super::PlpInfo {
         normed_count: plp_count,
@@ -155,12 +183,15 @@ pub fn plp_from_records_left_align(records: &Vec<Record>, target_len: usize) -> 
 
 fn build_one_record_of_msa(
     record: &Record,
+    ref_start: usize,
+    ref_end: usize,
     major_pos2major_starting_point: &HashMap<usize, usize>,
     mut result: ArrayViewMut1<u8>,
 ) {
     let record_ext = BamRecordExt::new(record);
-    let ref_start = record_ext.reference_start() as i64;
-    let ref_end = record_ext.reference_end() as i64;
+    let ref_start = ref_start as i64;
+    let ref_end = ref_end as i64;
+
     let q_start = record_ext.query_alignment_start() as i64;
     let q_end = record_ext.query_alignment_end() as i64;
     let query = record_ext.get_seq();
@@ -196,6 +227,7 @@ fn build_one_record_of_msa(
         let r_cursor = r_pos_cursor.map(|v| v as usize).unwrap();
         let r_cursor = &r_cursor;
         if !major_pos2major_starting_point.contains_key(r_cursor) {
+            eprintln!("r_corsor not found: {}", r_cursor);
             continue;
         }
 

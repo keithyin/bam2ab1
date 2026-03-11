@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Context;
-use ndarray::{Array2, Axis, stack, s};
+use ndarray::{Array2, Axis, s, stack};
 use ordered_float::OrderedFloat;
 use rust_htslib::{self, bam::HeaderView};
 
@@ -19,6 +19,16 @@ pub static BASE2IDX: [u8; 256] = {
     table
 };
 
+pub static IDX2BASE: [char; 5] = {
+    let mut table = ['N'; 5];
+    table[1] = 'G';
+    table[2] = 'A';
+    table[3] = 'T';
+    table[4] = 'C';
+
+    table
+};
+
 #[derive(Debug)]
 pub struct PlpInfo {
     pub normed_count: Array2<f32>, // (4, step), 4: GATC . ratio
@@ -27,17 +37,19 @@ pub struct PlpInfo {
 }
 
 impl PlpInfo {
-
     pub fn print_major(&self, col: usize) {
         let pos = binary_search_lower_bound(&self.major, &col);
-        let start  = pos.saturating_sub(5);
+        let start = pos.saturating_sub(5);
         let end = (pos + 5).min(self.major.len());
 
         for cursor in start..end {
-            println!("tt:{} -> {:?}", self.major[cursor], self.normed_count.slice(s![.., cursor]));
+            println!(
+                "tt:{} -> {:?}",
+                self.major[cursor],
+                self.normed_count.slice(s![.., cursor])
+            );
         }
         println!("-------------------------------------------------------------------------------")
-
     }
 
     // snp 5%, nh_indel: 10%, homo_indel: 45%
@@ -70,13 +82,15 @@ impl PlpInfo {
 
                 let mut is_homo = false;
 
-
                 // if maj > 0 {
                 //     is_homo |= seq[maj] == seq[maj - 1];
                 // }
                 if (maj + 1) < seq.len() {
                     let maj_base = seq[maj];
-                    let cnt = ((maj+1)..(maj+4).min(seq.len())).into_iter().map(|pos| if seq[pos] == maj_base {1} else {0}).sum::<usize>();
+                    let cnt = ((maj + 1)..(maj + 4).min(seq.len()))
+                        .into_iter()
+                        .map(|pos| if seq[pos] == maj_base { 1 } else { 0 })
+                        .sum::<usize>();
                     is_homo = cnt == 3;
                 }
 

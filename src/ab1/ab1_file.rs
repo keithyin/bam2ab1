@@ -132,6 +132,7 @@ impl<R: Read + Seek> AbiFileReader<R> {
         })
     }
 
+    #[allow(unused)]
     pub fn header(&self) -> &Header {
         &self.header
     }

@@ -1,7 +1,10 @@
 use std::{collections::HashMap, io::Write, path};
 
 use bam2ab1::{
-    ab1::data_process::transform_plp_info_2_ab1_data_with_deletion_shrink,
+    ab1::{
+        data_process::{Plp2Ab1WithDeletionShrink, Plp2Ab1WithInsIdentifier},
+        plp2ab1::TPlp2Ab1,
+    },
     pileup_counter::{
         BamHeaderSeqInfo, extract_seq_info_from_header, plp_from_records::plp_from_records,
     },
@@ -34,8 +37,14 @@ struct Cli {
     #[arg(long = "ovlpSize")]
     pub ovlp_size: Option<usize>,
 
-    #[arg(long="bamReadThreads", default_value_t = 1)]
-    pub bam_reader_threads: usize
+    #[arg(
+        long = "insIdent",
+        help = "insertion region identifier. only accept N or acgt"
+    )]
+    pub insertion_region_identifier: Option<String>,
+
+    #[arg(long = "bamReadThreads", default_value_t = 1)]
+    pub bam_reader_threads: usize,
 }
 
 impl Cli {
@@ -52,6 +61,22 @@ impl Cli {
             .to_str()
             .unwrap()
             .to_string()
+    }
+}
+
+fn build_plp2ab1_transformer(cli: &Cli) -> Box<dyn TPlp2Ab1> {
+    match cli.insertion_region_identifier.as_ref().map(|v| v.as_str()) {
+        None => Box::new(Plp2Ab1WithDeletionShrink::new()),
+        Some("N") => Box::new(Plp2Ab1WithInsIdentifier::new(
+            bam2ab1::ab1::data_process::InsertionRegionIdentifier::N,
+        )),
+
+        Some("acgt") => Box::new(Plp2Ab1WithInsIdentifier::new(
+            bam2ab1::ab1::data_process::InsertionRegionIdentifier::Acgt,
+        )),
+        Some(a) => {
+            panic!("invalid param for insIdent '{}',  try N or acgt", a);
+        }
     }
 }
 
@@ -131,6 +156,8 @@ fn main() {
         }
     }
 
+    let plp2ab1_transformer = build_plp2ab1_transformer(&cli);
+
     target_records.into_iter().for_each(|(name, mut records)| {
         records = records
             .into_iter()
@@ -195,7 +222,7 @@ fn main() {
             };
             println!("peak_width: {peak_width:?}");
 
-            let ab1_file = transform_plp_info_2_ab1_data_with_deletion_shrink(
+            let ab1_file = plp2ab1_transformer.transform(
                 &plp_info,
                 &reference_sequence[window_start..window_end],
                 peak_width,

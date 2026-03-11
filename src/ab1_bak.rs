@@ -5,6 +5,8 @@
 //!
 //! We are unable to find the official format spec for AB1 files.
 
+#![allow(unused)]
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -379,6 +381,7 @@ fn abi_trim(seq_record: &fastq::Record) -> fastq::Record {
 enum TagData {
     // U8(Vec<u8>),
     U16(Vec<u16>),
+    #[allow(unused)]
     U32(Vec<u32>),
     Str(String),
 }
