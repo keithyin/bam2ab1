@@ -224,7 +224,7 @@ fn main() {
                 0.45,
             );
 
-            println!("{:?}", plp_info.normed_count);
+            // println!("{:?}", plp_info.normed_count);
 
             // panic!("");
 
@@ -232,8 +232,8 @@ fn main() {
 
             let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
 
-            println!("{:?}", plp_info.normed_count);
-            panic!();
+            // println!("{:?}", plp_info.normed_count);
+            // panic!();
 
             // plp_info.print_major(3);
             let peak_width = if cli.base_width.is_none() {
