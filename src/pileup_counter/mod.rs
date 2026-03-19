@@ -204,7 +204,7 @@ impl PlpInfo {
             .normed_count
             .axis_iter(Axis(1))
             .enumerate()
-            .filter(|(idx, _)| !low_ratio_locus.contains(idx))
+            .filter(|(idx, _)| !low_ratio_locus.contains(idx) || self.minor[*idx] == 0)
             .map(|(_, arr)| arr)
             .collect::<Vec<_>>();
 
@@ -214,14 +214,14 @@ impl PlpInfo {
             .major
             .into_iter()
             .enumerate()
-            .filter(|(idx, _)| !low_ratio_locus.contains(idx))
+            .filter(|(idx, _)| !low_ratio_locus.contains(idx) || self.minor[*idx] == 0)
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
         let minor = self
             .minor
             .into_iter()
             .enumerate()
-            .filter(|(idx, _)| !low_ratio_locus.contains(idx))
+            .filter(|(idx, mio)| !low_ratio_locus.contains(idx) || *mio == 0)
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
 

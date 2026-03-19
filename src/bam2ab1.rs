@@ -213,6 +213,8 @@ fn main() {
 
             let mut plp_info = plp_from_records(&records, window_start, window_end);
 
+            // println!("{:?}", plp_info.normed_count);
+
             // plp_info.print_major(3);
 
             plp_info.modify_ratio(
@@ -222,9 +224,16 @@ fn main() {
                 0.45,
             );
 
+            println!("{:?}", plp_info.normed_count);
+
+            // panic!("");
+
             // plp_info.print_major(3);
 
             let plp_info = plp_info.drop_low_ratio_ins_locus(0.02);
+
+            println!("{:?}", plp_info.normed_count);
+            panic!();
 
             // plp_info.print_major(3);
             let peak_width = if cli.base_width.is_none() {
