@@ -1,24 +1,31 @@
 [package]
 name = "bam2ab1"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "bam2ab1"
 license = "MIT"
-exclude = [
-    "test-data/*"
-]
+exclude = ["test-data/*"]
 
 [dependencies]
 bincode = { version = "2.0.1", optional = true }
-na_seq = "0.3.6"  # Element, atom etc primitives
-bio = "2.3.0"  # For FASTA parsing.
+na_seq = "0.3.6" # Element, atom etc primitives
+bio = "2.3.0" # For FASTA parsing.
 anyhow = "1"
 rust-htslib = "0.49"
 ndarray = "0.16"
 num_cpus = "1"
 gskits = "0.15"
-clap = {version = "4", features = ["derive"]}
+clap = { version = "4", features = ["derive"] }
 ordered-float = "5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = [
+    "json",
+    "env-filter",
+    "fmt",
+    "time",
+    "local-time",
+] }
+time = "0.3.34"
 
 [[bin]]
 name = "bam2ab1"

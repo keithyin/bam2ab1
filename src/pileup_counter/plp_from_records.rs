@@ -1,20 +1,19 @@
-use std::collections::HashMap;
+use std::{cmp, collections::HashMap};
 
-use gskits::gsbam::{
-    bam_record_ext::BamRecordExt, plp_counts_from_records::compute_max_ins_of_each_ref_position,
-};
+use gskits::gsbam::bam_record_ext::BamRecordExt;
 use ndarray::{Array2, ArrayViewMut1, Axis, concatenate, s};
 use rust_htslib::bam::{Record, ext::BamRecordExtensions};
 
 use crate::pileup_counter::BASE2IDX;
 
+#[tracing::instrument(skip(records))]
 pub fn plp_from_records(
     records: &Vec<Record>,
     target_start: usize,
     target_end: usize,
 ) -> super::PlpInfo {
     let major_pos_ins =
-        compute_max_ins_of_each_ref_position(&records, Some(target_start), Some(target_end), None);
+        compute_max_ins_of_each_ref_position(&records, Some(target_start), Some(target_end));
 
     let mut major_pos_ins_vec = major_pos_ins
         .iter()
@@ -22,14 +21,27 @@ pub fn plp_from_records(
         .collect::<Vec<_>>();
     major_pos_ins_vec.sort_by_key(|v| v.0);
 
-    let mut sampled_values_for_print = major_pos_ins
-        .iter()
-        .filter(|(k, v)| **k > 450 && **k < 470)
-        .map(|(k, v)| (*k, *v))
-        .collect::<Vec<(i64, i32)>>();
-    sampled_values_for_print.sort_by_key(|v| v.0);
+    // let mut sampled_values_for_print = major_pos_ins
+    //     .iter()
+    //     .filter(|(k, v)| **k > 450 && **k < 470)
+    //     .map(|(k, v)| (*k, *v))
+    //     .collect::<Vec<(i64, i32)>>();
+    // sampled_values_for_print.sort_by_key(|v| v.0);
     // println!("major_pos_ins_vec:{sampled_values_for_print:?}");
     // (0..(ins_size+1)).into_iter().collect::<Vec<_>>())
+
+    // tracing::info!(
+    //     "major_pos_range: [{}, {})",
+    //     major_pos_ins_vec[0].0,
+    //     major_pos_ins_vec.last().unwrap().0 + 1
+    // );
+    // println!(
+    //     "{:?}",
+    //     major_pos_ins_vec
+    //         .iter()
+    //         .map(|(a, _)| *a)
+    //         .collect::<Vec<_>>()
+    // );
 
     let major = major_pos_ins_vec
         .iter()
@@ -87,7 +99,15 @@ pub fn plp_from_records(
         .enumerate()
         .for_each(|(locus, mut plp_c)| {
             let cur_major = major[locus];
-            let cur_depth = *major_depth.get(&cur_major).unwrap() as f32;
+
+            let cur_depth = match major_depth.get(&cur_major) {
+                Some(cur_depth) => *cur_depth as f32,
+                None => {
+                    tracing::error!("cur_major {cur_major} not found in major_depth");
+                    panic!("");
+                }
+            };
+
             plp_c.mapv_inplace(|v| v / cur_depth);
         });
 
@@ -126,7 +146,10 @@ pub fn plp_from_records(
 
     // println!("{:?}", plp_count);
 
-    let major = major.into_iter().map(|v| v - target_start).collect::<Vec<usize>>();
+    let major = major
+        .into_iter()
+        .map(|v| v - target_start)
+        .collect::<Vec<usize>>();
 
     super::PlpInfo {
         normed_count: plp_count,
@@ -273,6 +296,110 @@ pub fn count(msa_matrix: &Array2<u8>) -> Array2<f32> {
     });
 
     result_matrix
+}
+
+/// todo: use the cigar_str to speed up this function
+/// query_locus_blacklist: just like remove the base in query_locus_blacklist from the query
+///     so: when match, treat it as deletion
+///         when insertion: treat it as noting
+pub fn compute_max_ins_of_each_ref_position(
+    records: &Vec<Record>,
+    rstart: Option<usize>,
+    rend: Option<usize>,
+) -> HashMap<i64, i32> {
+    let mut pos2ins = HashMap::new();
+
+    let rstart = rstart.map(|v| v as i64);
+    let rend = rend.map(|v| v as i64);
+    for record in records {
+        let record_ext = BamRecordExt::new(record);
+        let mut start = rstart.unwrap_or(record_ext.reference_start() as i64);
+        let mut end = rend.unwrap_or(record_ext.reference_end() as i64);
+        start = cmp::max(start, record_ext.reference_start() as i64);
+        end = cmp::min(end, record_ext.reference_end() as i64);
+
+        // println!("end={end}");
+
+        let mut rpos_cursor = None;
+        // let mut qpos_cursor = None;
+        let mut cur_ins = 0;
+        let query_end = record_ext.query_alignment_end();
+
+        // println!(
+        //     "max_ins, qname:{}, rstart:{}, rend:{}",
+        //     record_ext.get_qname(),
+        //     start,
+        //     end
+        // );
+        let mut aligned_pair_full = record.aligned_pairs_full().collect::<Vec<_>>();
+        if aligned_pair_full.len() == 0 {
+            continue;
+        }
+
+        // this make the following for loop correct.
+        // if the query match to the last base of the ref seqence. the following for loop won't give the right result
+        // but add this , it will get the right result.
+        if let Some(last_ref_pos) = aligned_pair_full.last().unwrap()[0] {
+            aligned_pair_full.push([Some(last_ref_pos + 1), None]);
+        }
+
+        for [qpos, rpos] in aligned_pair_full.into_iter() {
+            if rpos.is_some() {
+                rpos_cursor = rpos;
+            }
+            // if qpos.is_some() {
+            //     qpos_cursor = qpos;
+            // }
+            if rpos_cursor.is_none() {
+                continue;
+            }
+
+            if rpos_cursor.unwrap() < start {
+                continue;
+            }
+
+            // print!("{},", rpos_cursor.unwrap());
+            if rpos_cursor.unwrap() >= end {
+                // set the last rpos max ins and then break
+                let rpos_ = rpos_cursor.unwrap();
+                // 避免 query 第一次 比对的位置就已经超过 了 期望 的 rend
+                if (rpos_ - 1) < end {
+                    pos2ins.entry(rpos_ - 1).or_insert(0);
+                    *pos2ins.get_mut(&(rpos_ - 1)).unwrap() =
+                        cmp::max(*pos2ins.get(&(rpos_ - 1)).unwrap(), cur_ins);
+                }
+
+                break;
+            }
+
+            if let Some(qpos_) = qpos {
+                if qpos_ as usize >= query_end {
+                    // println!("query hit end: {}", qpos_);
+                    // set the last rpos max ins and then break
+                    let rpos_ = rpos_cursor.unwrap();
+
+                    pos2ins.entry(rpos_).or_insert(0);
+                    *pos2ins.get_mut(&rpos_).unwrap() =
+                        cmp::max(*pos2ins.get(&rpos_).unwrap(), cur_ins);
+                    break;
+                }
+            }
+
+            if let Some(rpos_) = rpos {
+                if rpos_ > start {
+                    pos2ins.entry(rpos_ - 1).or_insert(0);
+                    *pos2ins.get_mut(&(rpos_ - 1)).unwrap() =
+                        cmp::max(*pos2ins.get(&(rpos_ - 1)).unwrap(), cur_ins);
+                }
+                cur_ins = 0;
+            } else {
+                cur_ins += 1;
+            }
+        }
+        // println!("");
+    }
+
+    pos2ins
 }
 
 #[cfg(test)]

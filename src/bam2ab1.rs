@@ -15,6 +15,9 @@ use gskits::{
     fastx_reader::{fasta_reader::FastaFileReader, read_fastx},
 };
 use rust_htslib::bam::{Read, Record};
+use time;
+use tracing;
+use tracing_subscriber;
 
 #[derive(Debug, Parser, Clone)]
 #[command(version, about, long_about = None)]
@@ -81,6 +84,16 @@ fn build_plp2ab1_transformer(cli: &Cli) -> Box<dyn TPlp2Ab1> {
 }
 
 fn main() {
+    let time_fmt = time::format_description::parse(
+        "[year]-[month padding:zero]-[day padding:zero] [hour]:[minute]:[second]",
+    )
+    .unwrap();
+    let time_offset =
+        time::UtcOffset::current_local_offset().unwrap_or_else(|_| time::UtcOffset::UTC);
+    let timer = tracing_subscriber::fmt::time::OffsetTime::new(time_offset, time_fmt);
+
+    tracing_subscriber::fmt::fmt().with_timer(timer).init();
+
     let cli = Cli::parse();
 
     let output_fpath = cli.get_output_filepath();
@@ -104,7 +117,7 @@ fn main() {
         .collect::<HashMap<String, ReadInfo>>();
 
     if fasta_records.is_empty() {
-        eprintln!("ERROR: empty fasta file. {}", cli.reference);
+        tracing::error!("empty fasta file. {}", cli.reference);
         return;
     }
 
@@ -120,21 +133,20 @@ fn main() {
     let header = rust_htslib::bam::Header::from_template(bam_reader.header());
     let bam_header = rust_htslib::bam::HeaderView::from_header(&header);
 
-    assert_eq!(
-        fasta_records.len(),
-        bam_header_sq_records.len(),
-        "fasta bam not match"
-    );
+    if fasta_records.len() != bam_header_sq_records.len() {
+        tracing::error!("fasta bam not match");
+        return;
+    }
 
     fasta_records.iter().for_each(|(name, info)| {
         if let Some(bam_header_info) = bam_header_sq_records.get(name) {
-            assert_eq!(
-                info.seq.len(),
-                bam_header_info.length,
-                "fasta bam not match"
-            );
+            if info.seq.len() != bam_header_info.length {
+                tracing::error!("fasta bam not match");
+                panic!("");
+            }
         } else {
-            panic!("fasta bam not match");
+            tracing::error!("fasta bam not match");
+            panic!("");
         }
     });
 
@@ -167,20 +179,20 @@ fn main() {
             .collect();
 
         if records.is_empty() {
-            eprintln!("WARN: empty records",);
+            tracing::warn!("empty records",);
             return;
         }
 
         let bam_seq_info = bam_header_sq_records.get(&name);
         if bam_seq_info.is_none() {
-            eprintln!("WARN: empty records",);
+            tracing::warn!("empty records",);
             return;
         }
 
         let seq_info = bam_seq_info.unwrap();
         let fasta_seq_info = fasta_records.get(&name);
         if fasta_seq_info.is_none() {
-            eprintln!("WARN: empty records",);
+            tracing::warn!("empty records",);
             return;
         }
         let fasta_seq_info = fasta_seq_info.unwrap();
@@ -216,11 +228,15 @@ fn main() {
 
             // plp_info.print_major(3);
             let peak_width = if cli.base_width.is_none() {
-                Some(((u16::MAX) as usize / seq_info.length - 1).min(20).max(3))
+                Some(
+                    ((u16::MAX) as usize / (window_end - window_start) - 1)
+                        .min(20)
+                        .max(3),
+                )
             } else {
                 cli.base_width
             };
-            println!("peak_width: {peak_width:?}");
+            tracing::info!("peak_width: {peak_width:?}");
 
             let ab1_file = plp2ab1_transformer.transform(
                 &plp_info,
@@ -242,13 +258,13 @@ fn main() {
             match std::fs::File::create(&o_path) {
                 Ok(mut file) => {
                     if let Err(err) = file.write_all(&ab1_file.to_bytes()) {
-                        eprintln!("ERROR: write to file error. {}", err);
+                        tracing::error!("write to file error. {}", err);
                     } else {
-                        println!("Success, write to : {:?}", o_path);
+                        tracing::info!("Success, write to : {:?}", o_path);
                     }
                 }
                 Err(err) => {
-                    eprintln!("ERROR: create file error: {}", err);
+                    tracing::error!("ERROR: create file error: {}", err);
                 }
             }
 
