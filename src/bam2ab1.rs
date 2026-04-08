@@ -141,12 +141,12 @@ fn main() {
     fasta_records.iter().for_each(|(name, info)| {
         if let Some(bam_header_info) = bam_header_sq_records.get(name) {
             if info.seq.len() != bam_header_info.length {
-                tracing::error!("fasta bam not match");
-                panic!("");
+                tracing::error!("fasta bam not match. seq_len not match");
+                panic!("fasta bam not match");
             }
         } else {
-            tracing::error!("fasta bam not match");
-            panic!("");
+            tracing::error!("fasta bam not match. query name not found in bam");
+            panic!("fasta bam not match. query name not found in bam");
         }
     });
 
