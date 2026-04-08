@@ -159,6 +159,9 @@ fn main() {
     let mut record = Record::new();
     loop {
         if let Some(Ok(_)) = bam_reader.read(&mut record) {
+            if record.is_unmapped() || record.is_secondary() || record.is_supplementary() {
+                continue;
+            }
             let t_name =
                 String::from_utf8(bam_header.tid2name(record.tid() as u32).to_vec()).unwrap();
             if target_records.contains_key(&t_name) {
@@ -174,14 +177,7 @@ fn main() {
 
     let plp2ab1_transformer = build_plp2ab1_transformer(&cli);
 
-    target_records.into_iter().for_each(|(name, mut records)| {
-        records = records
-            .into_iter()
-            .filter(|record| {
-                !record.is_unmapped() && !record.is_secondary() && !record.is_supplementary()
-            })
-            .collect();
-
+    target_records.into_iter().for_each(|(name, records)| {
         if records.is_empty() {
             tracing::warn!("empty records",);
             return;
