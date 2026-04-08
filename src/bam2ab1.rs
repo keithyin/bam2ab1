@@ -134,8 +134,12 @@ fn main() {
     let bam_header = rust_htslib::bam::HeaderView::from_header(&header);
 
     if fasta_records.len() != bam_header_sq_records.len() {
-        tracing::error!("fasta bam not match");
-        return;
+        tracing::error!(
+            "fasta bam not match. The amount of query data in the FASTA file does not match the number of reference sequences in the BAM file."
+        );
+        panic!(
+            "fasta bam not match. The amount of query data in the FASTA file does not match the number of reference sequences in the BAM file."
+        );
     }
 
     fasta_records.iter().for_each(|(name, info)| {
