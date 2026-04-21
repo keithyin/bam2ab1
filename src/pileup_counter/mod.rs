@@ -32,6 +32,7 @@ pub static IDX2BASE: [char; 5] = {
 #[derive(Debug)]
 pub struct PlpInfo {
     pub normed_count: Array2<f32>, // (4, step), 4: GATC . ratio
+    pub count: Array2<f32>,
     pub major: Vec<usize>,
     pub minor: Vec<usize>,
 }
@@ -61,9 +62,11 @@ impl PlpInfo {
 
         for cursor in start..end {
             println!(
-                "tt:{} -> {:?}",
+                "tt:{} -> {}. {}",
                 self.major[cursor],
-                self.normed_count.slice(s![.., cursor])
+                self.normed_count.slice(s![.., cursor]),
+                self.count.slice(s![.., cursor]),
+
             );
         }
         println!("-------------------------------------------------------------------------------")
@@ -217,6 +220,8 @@ impl PlpInfo {
             return self;
         }
 
+        let count = self.count;
+
         let normed_count = self
             .normed_count
             .axis_iter(Axis(1))
@@ -246,6 +251,7 @@ impl PlpInfo {
         assert_eq!(normed_count.shape()[1], major.len());
         Self {
             normed_count,
+            count,
             major,
             minor,
         }

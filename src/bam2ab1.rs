@@ -159,7 +159,10 @@ fn main() {
     let mut record = Record::new();
     loop {
         if let Some(Ok(_)) = bam_reader.read(&mut record) {
-            if record.is_unmapped() || record.is_secondary() || record.is_supplementary() {
+            if record.is_unmapped()
+                || (record.is_secondary() && true)
+                || (record.is_supplementary() && false)
+            {
                 continue;
             }
             let t_name =
@@ -217,8 +220,7 @@ fn main() {
 
             // plp_info.print_major(3);
 
-            // plp_info.print_major_range(1915, 1928);
-
+            // plp_info.print_major_range(2695, 2705);
 
             plp_info.modify_ratio(
                 &reference_sequence.as_bytes()[window_start..window_end],
