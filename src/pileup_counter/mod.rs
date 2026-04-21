@@ -52,6 +52,23 @@ impl PlpInfo {
         println!("-------------------------------------------------------------------------------")
     }
 
+    pub fn print_major_range(&self, start: usize, end: usize) {
+        let start_pos = binary_search_lower_bound(&self.major, &start);
+        let end_pos = binary_search_lower_bound(&self.major, &end);
+        let start = start_pos.saturating_sub(5);
+
+        let end = (end_pos + 5).min(self.major.len());
+
+        for cursor in start..end {
+            println!(
+                "tt:{} -> {:?}",
+                self.major[cursor],
+                self.normed_count.slice(s![.., cursor])
+            );
+        }
+        println!("-------------------------------------------------------------------------------")
+    }
+
     // snp 5%, nh_indel: 10%, homo_indel: 45%
     pub fn modify_ratio(
         &mut self,

@@ -217,6 +217,9 @@ fn main() {
 
             // plp_info.print_major(3);
 
+            // plp_info.print_major_range(1915, 1928);
+
+
             plp_info.modify_ratio(
                 &reference_sequence.as_bytes()[window_start..window_end],
                 0.05,
@@ -246,6 +249,8 @@ fn main() {
                 cli.base_width
             };
             tracing::info!("peak_width: {peak_width:?}");
+
+            // plp_info.print_major_range(1915, 1928);
 
             let ab1_file = plp2ab1_transformer.transform(
                 &plp_info,
