@@ -2,8 +2,8 @@
 #!/bin/bash
 
 # 配置目录路径
-BAM_DIR="test-data"
-REF_DIR="test-data"
+BAM_DIR="/mnt/e/ab1-debug/20260420-Consensus/ab1"
+REF_DIR="/mnt/e/ab1-debug/20260420-Consensus/ab1"
 
 # 创建带时间戳的日志文件
 LOG_FILE="bam2ab1_$(date +%Y%m%d_%H%M%S).log"
@@ -24,7 +24,7 @@ process_file() {
         echo "参考文件: $ref_file"
         
         # --chunkSize 500 --ovlpSize 50
-        if ./target/release/bam2ab1 --bam "$bam_file" --ref "$ref_file" --chunkSize 500 --ovlpSize 50 --insIdent N ; then
+        if bam2ab1 --bam "$bam_file" --ref "$ref_file" --insIdent N ; then
             echo "转换成功: $base_name"
             return 0
         else
