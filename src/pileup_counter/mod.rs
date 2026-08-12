@@ -220,8 +220,6 @@ impl PlpInfo {
             return self;
         }
 
-        let count = self.count;
-
         let normed_count = self
             .normed_count
             .axis_iter(Axis(1))
@@ -231,6 +229,16 @@ impl PlpInfo {
             .collect::<Vec<_>>();
 
         let normed_count = stack(Axis(1), &normed_count).unwrap();
+
+        let count = self
+            .count
+            .axis_iter(Axis(1))
+            .enumerate()
+            .filter(|(idx, _)| !low_ratio_locus.contains(idx) || self.minor[*idx] == 0)
+            .map(|(_, arr)| arr)
+            .collect::<Vec<_>>();
+
+        let count = stack(Axis(1), &count).unwrap();
 
         let major = self
             .major
@@ -249,6 +257,7 @@ impl PlpInfo {
 
         assert_eq!(major.len(), minor.len());
         assert_eq!(normed_count.shape()[1], major.len());
+        assert_eq!(count.shape()[1], major.len());
         Self {
             normed_count,
             count,
@@ -309,10 +318,35 @@ pub fn extract_seq_info_from_header(
 #[cfg(test)]
 mod test {
     use crate::pileup_counter::PlpInfo;
+    use ndarray::Array2;
 
     #[test]
     fn test_plp_info() {
 
         // let mut plp_info = PlpInfo{normed_count: }
+    }
+
+    #[test]
+    fn test_drop_low_ratio_ins_locus_syncs_count() {
+        // F3 回归测试: 过滤后 count 必须与 major/minor/normed_count 同步收缩,
+        // 保持 count.shape()[1] == major.len() 不变量。
+        let mut normed_count = Array2::<f32>::from_elem((4, 3), 0.0);
+        normed_count[[0, 0]] = 0.9; // 正常位点, 保留
+        normed_count[[1, 1]] = 0.005; // 低比例插入位点 (minor=1), 丢弃
+        normed_count[[2, 2]] = 0.005; // 低比例普通位点 (minor=0), 按现行为保留
+
+        let plp = PlpInfo {
+            normed_count: normed_count.clone(),
+            count: normed_count,
+            major: vec![0, 1, 2],
+            minor: vec![0, 1, 0],
+        };
+
+        let plp = plp.drop_low_ratio_ins_locus(0.02);
+
+        assert_eq!(plp.major, vec![0, 2]);
+        assert_eq!(plp.minor, vec![0, 0]);
+        assert_eq!(plp.normed_count.dim(), (4, 2));
+        assert_eq!(plp.count.dim(), (4, 2));
     }
 }
