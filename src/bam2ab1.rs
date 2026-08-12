@@ -221,7 +221,7 @@ fn main() {
             // plp_info.print_major(3);
 
             // plp_info.print_major_range(2695, 2705);
-
+            println!("windowsstart={}, windowend={}", window_start, window_end);
             plp_info.modify_ratio(
                 &reference_sequence.as_bytes()[window_start..window_end],
                 0.05,
@@ -243,7 +243,7 @@ fn main() {
             // plp_info.print_major(3);
             let peak_width = if cli.base_width.is_none() {
                 Some(
-                    ((u16::MAX) as usize / (window_end - window_start) - 1)
+                    ((u16::MAX) as usize / plp_info.major.len() - 1)
                         .min(20)
                         .max(3),
                 )

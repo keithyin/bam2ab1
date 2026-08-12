@@ -52,6 +52,21 @@ pub fn plp_from_records(
         .flat_map(|&(_, ins_size)| (0..(ins_size + 1)).into_iter())
         .collect::<Vec<_>>();
 
+    // No read pair falls inside this window: `major` would be empty and the
+    // `major[0]` access below would panic. Return a zero-filled PlpInfo for
+    // the whole window instead, matching the zero padding used for covered
+    // windows' unaligned edges.
+    if major.is_empty() {
+        let window_len = target_end - target_start;
+        let zeros = Array2::<f32>::from_elem((4, window_len), 0.0);
+        return super::PlpInfo {
+            normed_count: zeros.clone(),
+            count: zeros,
+            major: (0..window_len).collect::<Vec<_>>(),
+            minor: vec![0; window_len],
+        };
+    }
+
     let mut cursor = 0;
     let major_start_point = major_pos_ins_vec
         .iter()
@@ -535,5 +550,19 @@ mod test {
             println!("{:?}", &plp_info.major[30..40]);
             println!("{:?}", plp_info.normed_count.slice(s![.., 30..40]).t());
         }
+    }
+
+    #[test]
+    fn test_plp_from_records_empty_window() {
+        // Regression test for F2: a window with no read coverage must return a
+        // zero-filled PlpInfo instead of panicking on major[0].
+        let plp_info = plp_from_records(&Vec::new(), 50, 150);
+
+        assert_eq!(plp_info.major, (0..100).collect::<Vec<_>>());
+        assert_eq!(plp_info.minor, vec![0; 100]);
+        assert_eq!(plp_info.normed_count.dim(), (4, 100));
+        assert_eq!(plp_info.count.dim(), (4, 100));
+        assert!(plp_info.normed_count.iter().all(|&v| v == 0.0));
+        assert!(plp_info.count.iter().all(|&v| v == 0.0));
     }
 }
