@@ -565,4 +565,41 @@ mod test {
         assert!(plp_info.normed_count.iter().all(|&v| v == 0.0));
         assert!(plp_info.count.iter().all(|&v| v == 0.0));
     }
+
+    #[test]
+    fn test_plp_from_records_empty_window_from_bam() {
+        // Generated data: test-data/empty-window/seq.fasta (1200bp ref, contig
+        // "seq1") + query.fasta, whose reads map onto [0,600) only (see
+        // scripts/make_empty_window_test.sh). Windows past 600 have zero
+        // coverage, so plp_from_records must return a zero-filled PlpInfo (F2)
+        // instead of panicking on major[0].
+        let fpath = "./test-data/empty-window/empty-window.sort.bam";
+        let mut reader = rust_htslib::bam::Reader::from_path(fpath).unwrap();
+        let mut record = Record::new();
+        let mut records = vec![];
+        while let Some(Ok(_)) = reader.read(&mut record) {
+            if !record.is_unmapped() && !record.is_secondary() {
+                records.push(record);
+            }
+            record = Record::new();
+        }
+        assert!(!records.is_empty());
+
+        // Covered window: normal pileup, non-zero, major starts at 0.
+        let covered = plp_from_records(&records, 0, 300);
+        assert_eq!(covered.major.first(), Some(&0));
+        assert!(covered.normed_count.iter().any(|&v| v > 0.0));
+
+        // Gap windows: zero-filled PlpInfo, no panic on major[0].
+        for (start, end) in [(600, 900), (900, 1200)] {
+            let plp = plp_from_records(&records, start, end);
+            let window_len = end - start;
+            assert_eq!(plp.major, (0..window_len).collect::<Vec<_>>());
+            assert_eq!(plp.minor, vec![0; window_len]);
+            assert_eq!(plp.normed_count.dim(), (4, window_len));
+            assert_eq!(plp.count.dim(), (4, window_len));
+            assert!(plp.normed_count.iter().all(|&v| v == 0.0));
+            assert!(plp.count.iter().all(|&v| v == 0.0));
+        }
+    }
 }
