@@ -221,7 +221,7 @@ fn main() {
             // plp_info.print_major(3);
 
             // plp_info.print_major_range(2695, 2705);
-            println!("windowsstart={}, windowend={}", window_start, window_end);
+            // println!("windowsstart={}, windowend={}", window_start, window_end);
             plp_info.modify_ratio(
                 &reference_sequence.as_bytes()[window_start..window_end],
                 0.05,
